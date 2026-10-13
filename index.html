@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Coil Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root {
+    --bg: #E6E9EC;
+    --panel: #FFFFFF;
+    --ink: #1C2430;
+    --muted: #5B6573;
+    --line: #C9CFD6;
+    --go: #F5C400;
+    --go-ink: #1C2430;
+    --hold: #C62828;
+    --ok: #2E7D32;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161B22;
+      --panel: #222A35;
+      --ink: #EEF1F4;
+      --muted: #A3ADB9;
+      --line: #3A4452;
+      --go: #F5C400;
+      --go-ink: #1C2430;
+      --hold: #E05353;
+      --ok: #4CAF50;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 18px;
+    line-height: 1.4;
+    padding: env(safe-area-inset-top, 0px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  }
+  main { max-width: 520px; margin: 0 auto; }
+  header { padding: 16px 0 8px; display: flex; justify-content: space-between; align-items: baseline; }
+  header h1 { font-size: 22px; margin: 0; }
+  .test-badge { font-size: 14px; font-weight: 700; color: var(--hold); }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  #reader { width: 100%; border-radius: 10px; overflow: hidden; background: #000; min-height: 220px; }
+  .manual { display: flex; gap: 8px; margin-top: 16px; }
+  input[type="text"], textarea {
+    width: 100%; font: inherit; color: var(--ink); background: var(--panel);
+    border: 2px solid var(--line); border-radius: 8px; padding: 12px;
+  }
+  textarea { min-height: 90px; resize: vertical; }
+  button {
+    font: inherit; font-weight: 700; border: 0; border-radius: 8px;
+    padding: 14px 18px; min-height: 52px; cursor: pointer;
+  }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, label.check:focus-within {
+    outline: 3px solid var(--go); outline-offset: 2px;
+  }
+  .primary { background: var(--go); color: var(--go-ink); width: 100%; font-size: 20px; }
+  .secondary { background: transparent; color: var(--ink); border: 2px solid var(--line); width: 100%; }
+  .manual button { background: var(--ink); color: var(--bg); flex-shrink: 0; }
+  .coil-no {
+    font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+    font-size: 44px; line-height: 1; margin: 8px 0 4px; letter-spacing: 0.5px;
+  }
+  .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; background: var(--panel);
+    border-left: 6px solid var(--ok); border-radius: 8px; padding: 14px; margin: 12px 0 20px; }
+  .facts div span { display: block; font-size: 14px; color: var(--muted); }
+  .facts div strong { font-size: 18px; }
+  h2 { font-size: 18px; margin: 20px 0 8px; }
+  .checks { display: grid; gap: 8px; }
+  label.check {
+    display: flex; align-items: center; gap: 12px; background: var(--panel);
+    border: 2px solid var(--line); border-radius: 8px; padding: 12px; min-height: 52px;
+  }
+  label.check input { width: 26px; height: 26px; accent-color: var(--hold); flex-shrink: 0; }
+  label.check:has(input:checked) { border-color: var(--hold); }
+  .photo-row { display: flex; gap: 12px; align-items: center; }
+  .photo-row img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; display: none; }
+  .photo-btn { background: var(--panel); color: var(--ink); border: 2px solid var(--line); flex: 1; }
+  .actions { display: grid; gap: 10px; margin-top: 24px; }
+  .hold-banner {
+    background: var(--hold); color: #fff; border-radius: 10px; padding: 28px 16px;
+    text-align: center; margin: 8px 0 16px;
+  }
+  .hold-banner .big { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-size: 72px; line-height: 1; }
+  .hold-banner p { margin: 8px 0 0; }
+  .status { margin-top: 16px; padding: 12px; border-radius: 8px; display: none; font-weight: 600; }
+  .status.show { display: block; }
+  .status.error { background: var(--hold); color: #fff; }
+  .status.info { background: var(--panel); border: 2px solid var(--line); }
+  .done { text-align: center; padding: 40px 0; }
+  .done .big { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-size: 56px; color: var(--ok); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Coil Scanner</h1>
+    <span class="test-badge" id="testBadge" hidden>Test mode</span>
+  </header>
+
+  <!-- Scan screen -->
+  <section class="screen active" id="scanScreen">
+    <div id="reader"></div>
+    <div class="manual">
+      <input type="text" id="manualCoil" placeholder="Or type coil number" autocapitalize="characters" autocomplete="off">
+      <button id="manualBtn">Look up</button>
+    </div>
+    <div class="status" id="scanStatus"></div>
+  </section>
+
+  <!-- Coil found screen -->
+  <section class="screen" id="foundScreen">
+    <div class="coil-no" id="foundCoil"></div>
+    <div class="facts" id="facts"></div>
+
+    <h2>Damage (check all you see)</h2>
+    <div class="checks" id="checks"></div>
+
+    <h2>Photo</h2>
+    <div class="photo-row">
+      <button class="photo-btn" id="photoBtn">Take photo</button>
+      <img id="photoPreview" alt="Photo preview">
+    </div>
+    <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
+
+    <h2>Notes</h2>
+    <textarea id="notes" placeholder="Anything else to note"></textarea>
+
+    <div class="actions">
+      <button class="primary" id="saveBtn">Save</button>
+      <button class="secondary" id="cancelBtn">Cancel and scan again</button>
+    </div>
+    <div class="status" id="foundStatus"></div>
+  </section>
+
+  <!-- HOLD screen -->
+  <section class="screen" id="holdScreen">
+    <div class="hold-banner">
+      <div class="big">HOLD</div>
+      <p>Coil <strong id="holdCoil"></strong> is not on the manifest. Set it aside.</p>
+    </div>
+    <h2>Notes</h2>
+    <textarea id="holdNotes" placeholder="Where was it set aside?"></textarea>
+    <div class="actions">
+      <button class="primary" id="holdSaveBtn">Record hold</button>
+      <button class="secondary" id="holdCancelBtn">Cancel and scan again</button>
+    </div>
+    <div class="status" id="holdStatus"></div>
+  </section>
+
+  <!-- Done screen -->
+  <section class="screen" id="doneScreen">
+    <div class="done">
+      <div class="big">Saved</div>
+      <p id="doneText"></p>
+      <button class="primary" id="nextBtn">Scan next coil</button>
+    </div>
+  </section>
+</main>
+
+<script>
+  // ===== Settings =====
+  const API_URL = "https://ruywm33p4gwncec6nowoywi3tm0ifkbp.lambda-url.us-east-2.on.aws/";
+  const TEST_MODE = true; // true = TeamDesk workflows do NOT run. Set to false when going live.
+  const PHOTO_MAX_SIZE = 1600; // longest side in pixels
+  // =====================
+
+  let scanner = null;
+  let currentCoil = "";
+  let photoData = null;
+
+  const $ = (id) => document.getElementById(id);
+
+  if (TEST_MODE) $("testBadge").hidden = false;
+
+  function show(screenId) {
+    document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+    $(screenId).classList.add("active");
+    window.scrollTo(0, 0);
+  }
+
+  function setStatus(id, text, type) {
+    const el = $(id);
+    el.textContent = text || "";
+    el.className = "status" + (text ? " show " + type : "");
+  }
+
+  function apiUrl(params) {
+    const q = new URLSearchParams(params);
+    if (TEST_MODE) q.set("test", "1");
+    return API_URL + "?" + q.toString();
+  }
+
+  // ----- Scanning -----
+  async function startScanner() {
+    setStatus("scanStatus", "", "");
+    try {
+      if (!scanner) scanner = new Html5Qrcode("reader", { verbose: false });
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 280, height: 120 }, experimentalFeatures: { useBarCodeDetectorIfSupported: true } },
+        onScan,
+        () => {}
+      );
+    } catch (err) {
+      setStatus("scanStatus", "Camera didn't start. Allow camera access, or type the coil number below.", "error");
+    }
+  }
+
+  async function stopScanner() {
+    if (scanner && scanner.isScanning) {
+      try { await scanner.stop(); } catch (e) {}
+    }
+  }
+
+  async function onScan(text) {
+    await stopScanner();
+    lookup(text);
+  }
+
+  $("manualBtn").addEventListener("click", async () => {
+    const coil = $("manualCoil").value.trim();
+    if (!coil) return;
+    await stopScanner();
+    lookup(coil);
+  });
+
+  // ----- Lookup -----
+  async function lookup(coil) {
+    coil = coil.trim().toUpperCase();
+    currentCoil = coil;
+    setStatus("scanStatus", "Looking up " + coil + "...", "info");
+    try {
+      const res = await fetch(apiUrl({ action: "lookup", coil }));
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      if (data.found) {
+        await showFound(data.coil);
+      } else {
+        showHold(coil);
+      }
+    } catch (err) {
+      setStatus("scanStatus", "Lookup failed: " + err.message + ". Check signal and try again.", "error");
+      startScanner();
+    }
+  }
+
+  // ----- Found -----
+  let optionsCache = null;
+
+  async function loadOptions() {
+    if (optionsCache) return optionsCache;
+    const res = await fetch(apiUrl({ action: "options" }));
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    optionsCache = data.options;
+    return optionsCache;
+  }
+
+  async function showFound(coil) {
+    $("foundCoil").textContent = coil["Coil No"];
+    const facts = [
+      ["Size", coil["Size"]], ["PO", coil["PO NO."]],
+      ["Gross", coil["Gross"]], ["Net", coil["Net"]],
+      ["Location", coil["Location"]], ["Status", coil["Status"]],
+    ];
+    $("facts").innerHTML = "";
+    facts.forEach(([label, value]) => {
+      const d = document.createElement("div");
+      d.innerHTML = "<span></span><strong></strong>";
+      d.querySelector("span").textContent = label;
+      d.querySelector("strong").textContent = value ?? "-";
+      $("facts").appendChild(d);
+    });
+
+    $("checks").innerHTML = "";
+    try {
+      const options = await loadOptions();
+      options.forEach((opt) => {
+        const label = document.createElement("label");
+        label.className = "check";
+        label.innerHTML = '<input type="checkbox"><span></span>';
+        label.querySelector("input").value = opt;
+        label.querySelector("span").textContent = opt;
+        $("checks").appendChild(label);
+      });
+    } catch (err) {
+      setStatus("foundStatus", "Couldn't load damage options: " + err.message, "error");
+    }
+
+    resetForm();
+    show("foundScreen");
+  }
+
+  // ----- Photo -----
+  $("photoBtn").addEventListener("click", () => $("photoInput").click());
+
+  $("photoInput").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    photoData = await shrinkPhoto(file);
+    $("photoPreview").src = "data:image/jpeg;base64," + photoData;
+    $("photoPreview").style.display = "block";
+    $("photoBtn").textContent = "Retake photo";
+  });
+
+  function shrinkPhoto(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, PHOTO_MAX_SIZE / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.8).split(",")[1]);
+        URL.revokeObjectURL(img.src);
+      };
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  // ----- Save -----
+  async function save(payload, statusId, button) {
+    button.disabled = true;
+    setStatus(statusId, "Saving...", "info");
+    try {
+      const res = await fetch(apiUrl({ action: "save" }), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row && row.status >= 400) {
+        const msg = (row.errors && row.errors[0] && row.errors[0].message) || "TeamDesk rejected the record";
+        throw new Error(msg);
+      }
+      $("doneText").textContent = "Coil " + payload.coil + " recorded.";
+      show("doneScreen");
+    } catch (err) {
+      setStatus(statusId, "Not saved: " + err.message + ". Try again.", "error");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  $("saveBtn").addEventListener("click", () => {
+    const conditions = [...document.querySelectorAll("#checks input:checked")].map((i) => i.value);
+    const payload = { coil: currentCoil, conditions, notes: $("notes").value.trim() };
+    if (photoData) payload.photo = { name: currentCoil + ".jpg", type: "image/jpeg", data: photoData };
+    save(payload, "foundStatus", $("saveBtn"));
+  });
+
+  $("holdSaveBtn").addEventListener("click", () => {
+    const payload = { coil: currentCoil, conditions: [], notes: $("holdNotes").value.trim() };
+    save(payload, "holdStatus", $("holdSaveBtn"));
+  });
+
+  // ----- HOLD -----
+  function showHold(coil) {
+    $("holdCoil").textContent = coil;
+    $("holdNotes").value = "";
+    setStatus("holdStatus", "", "");
+    show("holdScreen");
+  }
+
+  // ----- Reset / navigation -----
+  function resetForm() {
+    photoData = null;
+    $("photoInput").value = "";
+    $("photoPreview").style.display = "none";
+    $("photoBtn").textContent = "Take photo";
+    $("notes").value = "";
+    setStatus("foundStatus", "", "");
+  }
+
+  function backToScan() {
+    $("manualCoil").value = "";
+    show("scanScreen");
+    startScanner();
+  }
+
+  $("cancelBtn").addEventListener("click", backToScan);
+  $("holdCancelBtn").addEventListener("click", backToScan);
+  $("nextBtn").addEventListener("click", backToScan);
+
+  startScanner();
+</script>
+</body>
+</html>
