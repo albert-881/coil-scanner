@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Loadout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root {
+    --bg: #E6E9EC;
+    --panel: #FFFFFF;
+    --ink: #1C2430;
+    --muted: #5B6573;
+    --line: #C9CFD6;
+    --go: #F5C400;
+    --go-ink: #1C2430;
+    --hold: #C62828;
+    --ok: #2E7D32;
+    --warn: #E08A00;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161B22;
+      --panel: #222A35;
+      --ink: #EEF1F4;
+      --muted: #A3ADB9;
+      --line: #3A4452;
+      --hold: #E05353;
+      --ok: #4CAF50;
+      --warn: #F0A030;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 18px;
+    line-height: 1.4;
+    padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  }
+  main { max-width: 520px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .top a { color: var(--muted); text-decoration: none; font-weight: 600; }
+  .test-badge { font-size: 14px; font-weight: 700; color: var(--hold); }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  h1 { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-size: 36px; margin: 4px 0 16px; }
+  label.field { display: block; margin-bottom: 14px; font-weight: 600; font-size: 15px; color: var(--muted); }
+  label.field input { margin-top: 4px; }
+  input[type="text"] {
+    width: 100%; font: inherit; color: var(--ink); background: var(--panel);
+    border: 2px solid var(--line); border-radius: 8px; padding: 12px;
+  }
+  button {
+    font: inherit; font-weight: 700; border: 0; border-radius: 8px;
+    padding: 14px 18px; min-height: 52px; cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--go); outline-offset: 2px; }
+  .primary { background: var(--go); color: var(--go-ink); width: 100%; font-size: 20px; }
+  .finish { background: var(--ok); color: #fff; width: 100%; font-size: 20px; }
+  .secondary { background: transparent; color: var(--ink); border: 2px solid var(--line); width: 100%; }
+  .status { margin: 12px 0; padding: 12px; border-radius: 8px; display: none; font-weight: 600; }
+  .status.show { display: block; }
+  .status.error { background: var(--hold); color: #fff; }
+  .status.info { background: var(--panel); border: 2px solid var(--line); }
+  .status.good { background: var(--ok); color: #fff; }
+
+  /* Load header */
+  .truck {
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 12px;
+    background: var(--panel); border-radius: 10px; padding: 14px;
+  }
+  .truck .label { font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: 0.5px; }
+  .truck .trailer { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-size: 40px; line-height: 1; }
+  .truck .sub { font-size: 15px; color: var(--muted); }
+  .truck .weight { text-align: right; }
+  .truck .weight .num { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-size: 40px; line-height: 1; }
+
+  .payload { background: var(--panel); border-radius: 10px; padding: 12px 14px; margin-top: 10px; }
+  .payload .label { font-size: 13px; color: var(--muted); font-weight: 700; display: flex; justify-content: space-between; }
+  .bar { height: 12px; background: var(--line); border-radius: 6px; overflow: hidden; margin-top: 8px; }
+  .bar div { height: 100%; width: 0; background: var(--ok); }
+  .bar div.near { background: var(--warn); }
+  .bar div.over { background: var(--hold); }
+
+  #reader { width: 100%; border-radius: 10px; overflow: hidden; background: #000; min-height: 200px; margin-top: 12px; }
+  .manual { display: flex; gap: 8px; margin-top: 10px; }
+  .manual button { background: var(--go); color: var(--go-ink); flex-shrink: 0; }
+
+  .list { margin-top: 14px; display: grid; gap: 8px; }
+  .row {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    background: var(--panel); border-radius: 8px; padding: 10px 12px; border-left: 6px solid var(--ok);
+  }
+  .row.flagged { border-left-color: var(--warn); }
+  .row .coil { font-weight: 700; }
+  .row .from { font-size: 14px; color: var(--muted); }
+  .row .right { text-align: right; flex-shrink: 0; }
+  .row .wt { font-weight: 700; }
+  .row button { background: transparent; color: var(--hold); padding: 4px 0; min-height: 0; font-size: 14px; }
+  .empty { color: var(--muted); text-align: center; padding: 16px 0; }
+  .actions { display: grid; gap: 10px; margin-top: 18px; }
+
+  .done { text-align: center; padding: 40px 0; }
+  .done .big { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-size: 56px; color: var(--ok); }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <a href="index.html">&larr; Home</a>
+    <span class="test-badge" id="testBadge" hidden>Test mode</span>
+  </div>
+
+  <!-- Screen 1: Truck details -->
+  <section class="screen active" id="truckScreen">
+    <h1>Truck details</h1>
+    <label class="field">Truck line
+      <input type="text" id="truckLine" autocomplete="off" autocapitalize="characters">
+    </label>
+    <label class="field">Tractor number
+      <input type="text" id="tractor" inputmode="numeric" autocomplete="off">
+    </label>
+    <label class="field">Trailer number
+      <input type="text" id="trailer" inputmode="numeric" autocomplete="off">
+    </label>
+    <label class="field">Release / PO (optional)
+      <input type="text" id="release" autocomplete="off" autocapitalize="characters">
+    </label>
+    <div class="status" id="truckStatus"></div>
+    <button class="primary" id="startBtn">Start loading, then scan coils</button>
+  </section>
+
+  <!-- Screen 2: Load coils -->
+  <section class="screen" id="loadScreen">
+    <div class="truck">
+      <div>
+        <div class="label">TRAILER</div>
+        <div class="trailer" id="showTrailer"></div>
+        <div class="sub" id="showTruck"></div>
+      </div>
+      <div class="weight">
+        <div class="num" id="totalWeight">0</div>
+        <div class="sub" id="totalLabel"></div>
+      </div>
+    </div>
+
+    <div class="payload">
+      <div class="label"><span>PAYLOAD</span><span id="limitLabel"></span></div>
+      <div class="bar"><div id="barFill"></div></div>
+    </div>
+
+    <div id="reader"></div>
+    <div class="manual">
+      <input type="text" id="manualCoil" placeholder="Or type coil number" autocapitalize="characters" autocomplete="off">
+      <button id="addBtn">Add</button>
+    </div>
+    <div class="status" id="loadStatus"></div>
+
+    <div class="list" id="coilList"></div>
+
+    <div class="actions">
+      <button class="finish" id="closeBtn">Close load and save</button>
+      <button class="secondary" id="cancelLoadBtn">Cancel this load</button>
+    </div>
+  </section>
+
+  <!-- Screen 3: Done -->
+  <section class="screen" id="doneScreen">
+    <div class="done">
+      <div class="big">Saved</div>
+      <p id="doneText"></p>
+      <div class="actions">
+        <button class="primary" id="newLoadBtn">Start a new load</button>
+        <button class="secondary" onclick="location.href='index.html'">Home</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  // ===== Settings =====
+  const API_URL = "https://ruywm33p4gwncec6nowoywi3tm0ifkbp.lambda-url.us-east-2.on.aws/";
+  const TEST_MODE = true;            // true = TeamDesk workflows do NOT run. Set to false when going live.
+  const MAX_LOAD = 48000;            // trailer weight limit
+  const WEIGHT_UNIT = "lbs";         // shown next to weights
+  const WEIGHT_FIELD = "Gross";      // which Service Order weight counts toward the load
+  const GOOD_STATUSES = ["Landed"];  // any other status asks "Are you sure?"
+  const SAVE_KEY = "loadout-in-progress";
+  // =====================
+
+  const $ = (id) => document.getElementById(id);
+  let scanner = null;
+  let busy = false;
+  let maxSlots = null;
+  let load = { truck: null, coils: [] }; // coils: [{coil, weight, location, flagged}]
+
+  if (TEST_MODE) $("testBadge").hidden = false;
+
+  function show(id) {
+    document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+    $(id).classList.add("active");
+    window.scrollTo(0, 0);
+  }
+
+  function setStatus(id, text, type) {
+    const el = $(id);
+    el.textContent = text || "";
+    el.className = "status" + (text ? " show " + type : "");
+  }
+
+  function apiUrl(params) {
+    const q = new URLSearchParams(params);
+    if (TEST_MODE) q.set("test", "1");
+    return API_URL + "?" + q.toString();
+  }
+
+  function fmt(n) { return Number(n || 0).toLocaleString(); }
+
+  // ----- Keep the load if the page is refreshed -----
+  function persist() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(load)); } catch (e) {}
+  }
+  function clearPersist() {
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  }
+  function restore() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      if (saved && saved.truck) return saved;
+    } catch (e) {}
+    return null;
+  }
+
+  // ----- How many coils fit (from TeamDesk) -----
+  async function loadSlots() {
+    if (maxSlots !== null) return maxSlots;
+    const res = await fetch(apiUrl({ action: "slots" }));
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    maxSlots = data.slots.length;
+    return maxSlots;
+  }
+
+  // ----- Screen 1 -----
+  $("startBtn").addEventListener("click", async () => {
+    const truck = {
+      truck_line: $("truckLine").value.trim(),
+      tractor: $("tractor").value.trim(),
+      trailer: $("trailer").value.trim(),
+      release: $("release").value.trim(),
+    };
+    if (!truck.truck_line || !truck.tractor || !truck.trailer) {
+      setStatus("truckStatus", "Fill in truck line, tractor number, and trailer number.", "error");
+      return;
+    }
+    if (!/^\d+$/.test(truck.tractor) || !/^\d+$/.test(truck.trailer)) {
+      setStatus("truckStatus", "Tractor and trailer numbers can only have digits.", "error");
+      return;
+    }
+    $("startBtn").disabled = true;
+    setStatus("truckStatus", "Getting ready...", "info");
+    try {
+      await loadSlots();
+      load = { truck, coils: [] };
+      persist();
+      openLoadScreen();
+    } catch (err) {
+      setStatus("truckStatus", "Couldn't connect: " + err.message, "error");
+    } finally {
+      $("startBtn").disabled = false;
+    }
+  });
+
+  // ----- Screen 2 -----
+  function openLoadScreen() {
+    const t = load.truck;
+    $("showTrailer").textContent = t.trailer;
+    $("showTruck").textContent = t.truck_line + " · Tractor " + t.tractor + (t.release ? " · " + t.release : "");
+    $("limitLabel").textContent = "LIMIT " + fmt(MAX_LOAD) + " " + WEIGHT_UNIT.toUpperCase();
+    setStatus("loadStatus", "", "");
+    render();
+    show("loadScreen");
+    startScanner();
+  }
+
+  function totalWeight() {
+    return load.coils.reduce((sum, c) => sum + (Number(c.weight) || 0), 0);
+  }
+
+  function render() {
+    const total = totalWeight();
+    $("totalWeight").textContent = fmt(total);
+    $("totalLabel").textContent = WEIGHT_UNIT + " on trailer · " + load.coils.length + (maxSlots ? " of " + maxSlots : "") + " pcs";
+
+    const pct = Math.min(100, (total / MAX_LOAD) * 100);
+    const bar = $("barFill");
+    bar.style.width = pct + "%";
+    bar.className = total > MAX_LOAD ? "over" : pct >= 90 ? "near" : "";
+
+    const list = $("coilList");
+    list.innerHTML = "";
+    if (!load.coils.length) {
+      list.innerHTML = '<div class="empty">No coils yet. Scan the first one.</div>';
+      return;
+    }
+    load.coils.forEach((c, i) => {
+      const row = document.createElement("div");
+      row.className = "row" + (c.flagged ? " flagged" : "");
+      row.innerHTML = '<div><div class="coil"></div><div class="from"></div></div>' +
+        '<div class="right"><div class="wt"></div><button>Remove</button></div>';
+      row.querySelector(".coil").textContent = c.coil;
+      row.querySelector(".from").textContent = c.location ? "pulled from " + c.location : "location unknown";
+      row.querySelector(".wt").textContent = fmt(c.weight) + " " + WEIGHT_UNIT;
+      row.querySelector("button").addEventListener("click", () => {
+        if (!confirm("Remove " + c.coil + " from this load?")) return;
+        load.coils.splice(i, 1);
+        persist();
+        render();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  // ----- Scanning -----
+  async function startScanner() {
+    try {
+      if (!scanner) scanner = new Html5Qrcode("reader", { verbose: false });
+      if (scanner.isScanning) return;
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 280, height: 120 }, experimentalFeatures: { useBarCodeDetectorIfSupported: true } },
+        (text) => addCoil(text),
+        () => {}
+      );
+    } catch (err) {
+      setStatus("loadStatus", "Camera didn't start. Allow camera access, or type the coil number.", "error");
+    }
+  }
+
+  async function stopScanner() {
+    if (scanner && scanner.isScanning) {
+      try { await scanner.stop(); } catch (e) {}
+    }
+  }
+
+  function pauseScanner() {
+    try { if (scanner && scanner.isScanning) scanner.pause(true); } catch (e) {}
+  }
+  function resumeScanner() {
+    try { if (scanner && scanner.isScanning) scanner.resume(); } catch (e) {}
+  }
+
+  $("addBtn").addEventListener("click", () => {
+    const coil = $("manualCoil").value.trim();
+    if (coil) addCoil(coil);
+  });
+
+  async function addCoil(raw) {
+    if (busy) return;
+    busy = true;
+    pauseScanner();
+    const coil = raw.trim().toUpperCase();
+
+    try {
+      if (load.coils.some((c) => c.coil === coil)) {
+        setStatus("loadStatus", coil + " is already on this load.", "error");
+        return;
+      }
+      if (maxSlots !== null && load.coils.length >= maxSlots) {
+        setStatus("loadStatus", "This load is full (" + maxSlots + " coils). Close the load to save it.", "error");
+        return;
+      }
+
+      setStatus("loadStatus", "Checking " + coil + "...", "info");
+      const res = await fetch(apiUrl({ action: "lookup", coil }));
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      let item;
+      if (!data.found) {
+        if (!confirm(coil + " is NOT on the manifest.\n\nAre you sure you want to load it?")) {
+          setStatus("loadStatus", coil + " was not added.", "info");
+          return;
+        }
+        item = { coil, weight: 0, location: "", flagged: true };
+      } else {
+        const info = data.coil;
+        const status = info["Status"] || "";
+        let flagged = false;
+        if (!GOOD_STATUSES.includes(status)) {
+          if (!confirm(coil + " has status \"" + (status || "blank") + "\".\n\nAre you sure you want to load it?")) {
+            setStatus("loadStatus", coil + " was not added.", "info");
+            return;
+          }
+          flagged = true;
+        }
+        item = { coil: info["Coil No"] || coil, weight: Number(info[WEIGHT_FIELD]) || 0, location: info["Location"] || "", flagged };
+      }
+
+      if (totalWeight() + item.weight > MAX_LOAD) {
+        if (!confirm("Adding " + coil + " puts the truck OVER the " + fmt(MAX_LOAD) + " " + WEIGHT_UNIT + " limit.\n\nAre you sure?")) {
+          setStatus("loadStatus", coil + " was not added.", "info");
+          return;
+        }
+        item.flagged = true;
+      }
+
+      load.coils.push(item);
+      persist();
+      render();
+      $("manualCoil").value = "";
+      setStatus("loadStatus", coil + " added.", "good");
+    } catch (err) {
+      setStatus("loadStatus", "Couldn't check " + coil + ": " + err.message, "error");
+    } finally {
+      // short pause so the same barcode isn't read twice in a row
+      setTimeout(() => { busy = false; resumeScanner(); }, 1200);
+    }
+  }
+
+  // ----- Close load -----
+  $("closeBtn").addEventListener("click", async () => {
+    if (!load.coils.length) {
+      setStatus("loadStatus", "Scan at least one coil before closing the load.", "error");
+      return;
+    }
+    if (!confirm("Close this load with " + load.coils.length + " coils (" + fmt(totalWeight()) + " " + WEIGHT_UNIT + ")?")) return;
+
+    $("closeBtn").disabled = true;
+    setStatus("loadStatus", "Saving...", "info");
+    try {
+      const payload = { ...load.truck, coils: load.coils.map((c) => c.coil) };
+      const res = await fetch(apiUrl({ action: "save_bol" }), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row && row.status >= 400) {
+        throw new Error((row.errors && row.errors[0] && row.errors[0].message) || "TeamDesk rejected the record");
+      }
+      await stopScanner();
+      $("doneText").textContent = "Trailer " + load.truck.trailer + ": " + load.coils.length + " coils, " + fmt(totalWeight()) + " " + WEIGHT_UNIT + ".";
+      clearPersist();
+      show("doneScreen");
+    } catch (err) {
+      setStatus("loadStatus", "Not saved: " + err.message + ". Try again.", "error");
+    } finally {
+      $("closeBtn").disabled = false;
+    }
+  });
+
+  $("cancelLoadBtn").addEventListener("click", async () => {
+    if (!confirm("Cancel this load? The scanned coils will be cleared.")) return;
+    await stopScanner();
+    clearPersist();
+    load = { truck: null, coils: [] };
+    show("truckScreen");
+  });
+
+  $("newLoadBtn").addEventListener("click", () => {
+    ["truckLine", "tractor", "trailer", "release"].forEach((id) => ($(id).value = ""));
+    load = { truck: null, coils: [] };
+    setStatus("truckStatus", "", "");
+    show("truckScreen");
+  });
+
+  // ----- On page open: resume a load in progress -----
+  (async () => {
+    const saved = restore();
+    if (saved) {
+      load = saved;
+      try { await loadSlots(); } catch (e) {}
+      openLoadScreen();
+      setStatus("loadStatus", "Resumed the load in progress.", "info");
+    }
+  })();
+</script>
+</body>
+</html>
