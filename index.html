@@ -127,15 +127,17 @@
     <h2>Damage (check all you see)</h2>
     <div class="checks" id="checks"></div>
 
-    <h2>Photo</h2>
-    <div class="photo-row">
-      <button class="photo-btn" id="photoBtn">Take photo</button>
-      <img id="photoPreview" alt="Photo preview">
-    </div>
-    <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
+    <div id="damageDetails" hidden>
+      <h2>Photo (required)</h2>
+      <div class="photo-row">
+        <button class="photo-btn" id="photoBtn">Take photo</button>
+        <img id="photoPreview" alt="Photo preview">
+      </div>
+      <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
 
-    <h2>Notes</h2>
-    <textarea id="notes" placeholder="Anything else to note"></textarea>
+      <h2>Notes (required)</h2>
+      <textarea id="notes" placeholder="Describe the damage"></textarea>
+    </div>
 
     <div class="actions">
       <button class="primary" id="saveBtn">Save</button>
@@ -302,7 +304,16 @@
     resetForm();
     show("foundScreen");
   }
+  // ----- Show photo/notes only when damage is checked -----
+  function hasDamage() {
+    return document.querySelectorAll("#checks input:checked").length > 0;
+  }
 
+  function updateDamageDetails() {
+    $("damageDetails").hidden = !hasDamage();
+  }
+
+  $("checks").addEventListener("change", updateDamageDetails);
   // ----- Photo -----
   $("photoBtn").addEventListener("click", () => $("photoInput").click());
 
@@ -360,6 +371,16 @@
 
   $("saveBtn").addEventListener("click", () => {
     const conditions = [...document.querySelectorAll("#checks input:checked")].map((i) => i.value);
+    if (conditions.length > 0) {
+      if (!photoData) {
+        setStatus("foundStatus", "Take a photo of the damage before saving.", "error");
+        return;
+      }
+      if (!$("notes").value.trim()) {
+        setStatus("foundStatus", "Add a note about the damage before saving.", "error");
+        return;
+      }
+    }
     const payload = { coil: currentCoil, conditions, notes: $("notes").value.trim() };
     if (photoData) payload.photo = { name: currentCoil + ".jpg", type: "image/jpeg", data: photoData };
     save(payload, "foundStatus", $("saveBtn"));
@@ -386,6 +407,7 @@
     $("photoBtn").textContent = "Take photo";
     $("notes").value = "";
     setStatus("foundStatus", "", "");
+    updateDamageDetails();
   }
 
   function backToScan() {
