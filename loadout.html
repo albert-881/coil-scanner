@@ -193,6 +193,7 @@
   const WEIGHT_UNIT = "lbs";         // shown next to weights
   const WEIGHT_FIELD = "Gross";      // which Service Order weight counts toward the load
   const GOOD_STATUSES = ["Landed"];  // any other status asks "Are you sure?"
+  const ALLOW_UNKNOWN_COILS = false; // false = coils not in Service Order are blocked
   const SAVE_KEY = "loadout-in-progress";
   // =====================
 
@@ -386,6 +387,10 @@
 
       let item;
       if (!data.found) {
+        if (!ALLOW_UNKNOWN_COILS) {
+          setStatus("loadStatus", coil + " is NOT in the database. It can't be loaded.", "error");
+          return;
+        }
         if (!confirm(coil + " is NOT on the manifest.\n\nAre you sure you want to load it?")) {
           setStatus("loadStatus", coil + " was not added.", "info");
           return;
