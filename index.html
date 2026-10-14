@@ -76,10 +76,12 @@
   .facts div span { display: block; font-size: 14px; color: var(--muted); }
   .facts div strong { font-size: 18px; }
   h2 { font-size: 18px; margin: 20px 0 8px; }
-  .checks { display: grid; gap: 8px; }
+  .checks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   label.check {
-    display: flex; align-items: center; gap: 12px; background: var(--panel);
-    border: 2px solid var(--line); border-radius: 8px; padding: 12px; min-height: 52px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; background: var(--panel); text-align: center;
+    border: 2px solid var(--line); border-radius: 8px; padding: 10px 6px; min-height: 84px;
+    font-size: 14px; line-height: 1.2; overflow-wrap: anywhere;
   }
   label.check input { width: 26px; height: 26px; accent-color: var(--hold); flex-shrink: 0; }
   label.check:has(input:checked) { border-color: var(--hold); }
@@ -139,11 +141,11 @@
       <textarea id="notes" placeholder="Describe the damage"></textarea>
     </div>
 
+    <div class="status" id="foundStatus"></div>
     <div class="actions">
       <button class="primary" id="saveBtn">Save</button>
       <button class="secondary" id="cancelBtn">Cancel and scan again</button>
     </div>
-    <div class="status" id="foundStatus"></div>
   </section>
 
   <!-- HOLD screen -->
@@ -154,11 +156,11 @@
     </div>
     <h2>Notes</h2>
     <textarea id="holdNotes" placeholder="Where was it set aside?"></textarea>
+    <div class="status" id="holdStatus"></div>
     <div class="actions">
       <button class="primary" id="holdSaveBtn">Record hold</button>
       <button class="secondary" id="holdCancelBtn">Cancel and scan again</button>
     </div>
-    <div class="status" id="holdStatus"></div>
   </section>
 
   <!-- Done screen -->
