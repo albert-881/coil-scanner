@@ -73,6 +73,10 @@
   }
   .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; background: var(--panel);
     border-left: 6px solid var(--ok); border-radius: 8px; padding: 14px; margin: 12px 0 20px; }
+  .facts .put-away {
+    grid-column: 1 / -1; font-size: 22px; font-weight: 700;
+    padding-bottom: 10px; border-bottom: 2px solid var(--line);
+  }
   .facts div span { display: block; font-size: 14px; color: var(--muted); }
   .facts div strong { font-size: 18px; }
   h2 { font-size: 18px; margin: 20px 0 8px; }
@@ -107,7 +111,7 @@
 <body>
 <main>
   <header>
-    <h1>Coil Scanner</h1>
+    
     <span class="test-badge" id="testBadge" hidden>Test mode</span>
   </header>
 
@@ -277,9 +281,13 @@
     const facts = [
       ["Size", coil["Size"]], ["PO", coil["PO NO."]],
       ["Gross", coil["Gross"]], ["Net", coil["Net"]],
-      ["Location", coil["Location"]], ["Status", coil["Status"]],
     ];
     $("facts").innerHTML = "";
+
+    const putAway = document.createElement("div");
+    putAway.className = "put-away";
+    putAway.textContent = "Put Away At: " + (coil["Location"] || "-");
+    $("facts").appendChild(putAway);
     facts.forEach(([label, value]) => {
       const d = document.createElement("div");
       d.innerHTML = "<span></span><strong></strong>";
