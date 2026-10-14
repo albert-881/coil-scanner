@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Coil Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #E6E9EC;
+    --panel: #FFFFFF;
+    --ink: #1C2430;
+    --muted: #5B6573;
+    --line: #C9CFD6;
+    --go: #F5C400;
+    --ok: #2E7D32;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161B22;
+      --panel: #222A35;
+      --ink: #EEF1F4;
+      --muted: #A3ADB9;
+      --line: #3A4452;
+      --ok: #4CAF50;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: calc(env(safe-area-inset-top, 0px) + 24px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  }
+  main {
+    max-width: 520px; margin: 0 auto; height: 100%;
+    display: flex; flex-direction: column; justify-content: center; gap: 16px;
+  }
+  a.choice {
+    display: block; text-decoration: none; color: var(--ink);
+    background: var(--panel); border: 2px solid var(--line); border-radius: 12px;
+    padding: 28px 20px; border-left: 10px solid var(--go);
+  }
+  a.choice.loadout { border-left-color: var(--ok); }
+  a.choice strong {
+    display: block; font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+    font-size: 40px; line-height: 1;
+  }
+  a.choice span { display: block; margin-top: 6px; color: var(--muted); font-size: 17px; }
+  a.choice:focus-visible { outline: 3px solid var(--go); outline-offset: 3px; }
+  a.choice:active { transform: scale(0.99); }
+</style>
+</head>
+<body>
+<main>
+  <a class="choice discharge" href="discharge.html">
+    <strong>Discharge</strong>
+    <span>Scan coils off the ship and record damage</span>
+  </a>
+  <a class="choice loadout" href="loadout.html">
+    <strong>Loadout</strong>
+    <span>Load good coils onto a truck</span>
+  </a>
+</main>
+</body>
+</html>
