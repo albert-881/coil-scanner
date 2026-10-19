@@ -8,6 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="config.js"></script>
+<script src="auth.js"></script>
+<script>requireLogin();</script>
 <style>
   :root {
     --bg: #E6E9EC;
@@ -249,7 +251,7 @@
     currentCoil = coil;
     setStatus("scanStatus", "Looking up " + coil + "...", "info");
     try {
-      const res = await fetch(apiUrl({ action: "lookup", coil }));
+      const res = await authFetch(apiUrl({ action: "lookup", coil }));
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       if (data.found) {
@@ -268,7 +270,7 @@
 
   async function loadOptions() {
     if (optionsCache) return optionsCache;
-    const res = await fetch(apiUrl({ action: "options" }));
+    const res = await authFetch(apiUrl({ action: "options" }));
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     optionsCache = data.options;
@@ -357,7 +359,7 @@
     button.disabled = true;
     setStatus(statusId, "Saving...", "info");
     try {
-      const res = await fetch(apiUrl({ action: "save" }), {
+      const res = await authFetch(apiUrl({ action: "save" }), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

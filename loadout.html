@@ -252,7 +252,7 @@
   // ----- How many coils fit (from TeamDesk) -----
   async function loadSlots() {
     if (maxSlots !== null) return maxSlots;
-    const res = await fetch(apiUrl({ action: "slots" }));
+    const res = await authFetch(apiUrl({ action: "slots" }));
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     maxSlots = data.slots.length;
@@ -390,7 +390,7 @@
       }
 
       setStatus("loadStatus", "Checking " + coil + "...", "info");
-      const res = await fetch(apiUrl({ action: "lookup", coil }));
+      const res = await authFetch(apiUrl({ action: "lookup", coil }));
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
@@ -504,7 +504,7 @@
         coils: load.coils.map((c) => c.coil),
         photo: { name: "trailer-" + load.truck.trailer + ".jpg", type: "image/jpeg", data: photoData },
       };
-      const res = await fetch(apiUrl({ action: "save_bol" }), {
+      const res = await authFetch(apiUrl({ action: "save_bol" }), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
