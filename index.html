@@ -6,6 +6,9 @@
 <title>Coil Scanner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<script>requireLogin();</script>
 <style>
   :root {
     --bg: #E6E9EC;
@@ -17,6 +20,8 @@
     --ok: #2E7D32;
     color-scheme: light;
   }
+  .who { text-align: center; color: var(--muted); font-size: 15px; margin-top: 8px; }
+  .who a { color: var(--muted); }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #161B22;
@@ -65,6 +70,14 @@
     <strong>Loadout</strong>
     <span>Load good coils onto a truck</span>
   </a>
+  <p class="who">Logged in as <strong id="who"></strong> · <a href="#" id="logoutLink">Log out</a></p>
 </main>
+<script>
+  document.getElementById("who").textContent = currentUser() || "";
+  document.getElementById("logoutLink").addEventListener("click", (e) => {
+    e.preventDefault();
+    if (confirm("Log out on this phone?")) logout();
+  });
+</script>
 </body>
 </html>
