@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Log in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<style>
+  :root {
+    --bg: #E6E9EC; --panel: #FFFFFF; --ink: #1C2430; --muted: #5B6573;
+    --line: #C9CFD6; --go: #F5C400; --go-ink: #1C2430; --hold: #C62828;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161B22; --panel: #222A35; --ink: #EEF1F4; --muted: #A3ADB9;
+      --line: #3A4452; --hold: #E05353; color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 18px; line-height: 1.4;
+    padding: calc(env(safe-area-inset-top, 0px) + 24px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  }
+  main { max-width: 420px; margin: 0 auto; height: 100%; display: flex; flex-direction: column; justify-content: center; }
+  h1 { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-size: 40px; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 20px; }
+  label { display: block; margin-bottom: 14px; font-weight: 600; font-size: 15px; color: var(--muted); }
+  input {
+    display: block; width: 100%; margin-top: 4px; font: inherit; color: var(--ink); background: var(--panel);
+    border: 2px solid var(--line); border-radius: 8px; padding: 12px;
+  }
+  button {
+    width: 100%; font: inherit; font-size: 20px; font-weight: 700; border: 0; border-radius: 8px;
+    padding: 14px 18px; min-height: 52px; background: var(--go); color: var(--go-ink); cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; }
+  input:focus-visible, button:focus-visible { outline: 3px solid var(--go); outline-offset: 2px; }
+  .status { margin: 0 0 14px; padding: 12px; border-radius: 8px; display: none; font-weight: 600; }
+  .status.show { display: block; }
+  .status.error { background: var(--hold); color: #fff; }
+  .status.info { background: var(--panel); border: 2px solid var(--line); }
+  .hint { font-size: 14px; color: var(--muted); margin: -6px 0 14px; }
+</style>
+</head>
+<body>
+<main>
+  <section id="loginStep">
+    <h1>Log in</h1>
+    <p class="sub">You only need to do this once on this phone.</p>
+    <label>Username
+      <input type="text" id="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
+    </label>
+    <label>Password
+      <input type="password" id="password" autocomplete="current-password">
+    </label>
+    <div class="status" id="loginStatus"></div>
+    <button id="loginBtn">Log in</button>
+  </section>
+
+  <section id="newPasswordStep" hidden>
+    <h1>Pick a new password</h1>
+    <p class="sub">First time logging in. Choose your own password.</p>
+    <label>New password
+      <input type="password" id="newPassword" autocomplete="new-password">
+    </label>
+    <label>Type it again
+      <input type="password" id="newPassword2" autocomplete="new-password">
+    </label>
+    <p class="hint">At least 8 characters, with an uppercase letter, a lowercase letter, a number, and a symbol.</p>
+    <div class="status" id="newStatus"></div>
+    <button id="newBtn">Save and continue</button>
+  </section>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let pendingSession = null;
+  let pendingUser = "";
+
+  if (readAuth()) location.replace(safeNextPage()); // already logged in
+
+  function setStatus(id, text, type) {
+    const el = $(id);
+    el.textContent = text || "";
+    el.className = "status" + (text ? " show " + type : "");
+  }
+
+  async function doLogin() {
+    const username = $("username").value.trim();
+    const password = $("password").value;
+    if (!username || !password) { setStatus("loginStatus", "Enter your username and password.", "error"); return; }
+    $("loginBtn").disabled = true;
+    setStatus("loginStatus", "Logging in...", "info");
+    try {
+      const result = await login(username, password);
+      if (result.challenge) {
+        pendingSession = result.session;
+        pendingUser = username;
+        $("loginStep").hidden = true;
+        $("newPasswordStep").hidden = false;
+        $("newPassword").focus();
+        return;
+      }
+      location.replace(safeNextPage());
+    } catch (err) {
+      setStatus("loginStatus", err.message, "error");
+    } finally {
+      $("loginBtn").disabled = false;
+    }
+  }
+
+  async function doNewPassword() {
+    const p1 = $("newPassword").value;
+    const p2 = $("newPassword2").value;
+    if (!p1) { setStatus("newStatus", "Type a new password.", "error"); return; }
+    if (p1 !== p2) { setStatus("newStatus", "The two passwords don't match.", "error"); return; }
+    $("newBtn").disabled = true;
+    setStatus("newStatus", "Saving...", "info");
+    try {
+      await setNewPassword(pendingUser, pendingSession, p1);
+      location.replace(safeNextPage());
+    } catch (err) {
+      setStatus("newStatus", err.message, "error");
+    } finally {
+      $("newBtn").disabled = false;
+    }
+  }
+
+  $("loginBtn").addEventListener("click", doLogin);
+  $("password").addEventListener("keydown", (e) => { if (e.key === "Enter") doLogin(); });
+  $("newBtn").addEventListener("click", doNewPassword);
+  $("newPassword2").addEventListener("keydown", (e) => { if (e.key === "Enter") doNewPassword(); });
+</script>
+</body>
+</html>
