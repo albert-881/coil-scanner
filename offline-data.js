@@ -111,3 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
   cachedGet("options").catch(() => {}); // save damage options for later
   cachedGet("slots").catch(() => {});   // save truck slots for later
 });
+// ---------- Keep a copy of the app on the phone (sw.js) ----------
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch((e) => console.warn("Offline copy not set up:", e));
+  }
