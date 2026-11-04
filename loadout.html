@@ -10,6 +10,7 @@
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <script src="queue.js"></script>
+<script src="offline-data.js"></script>
 <script>requireLogin();</script>
 <style>
   :root {
@@ -255,8 +256,7 @@
   // ----- How many coils fit (from TeamDesk) -----
   async function loadSlots() {
     if (maxSlots !== null) return maxSlots;
-    const res = await authFetch(apiUrl({ action: "slots" }));
-    const data = await res.json();
+    const data = await cachedGet("slots");
     if (data.error) throw new Error(data.error);
     maxSlots = data.slots.length;
     return maxSlots;
@@ -393,8 +393,7 @@
       }
 
       setStatus("loadStatus", "Checking " + coil + "...", "info");
-      const res = await authFetch(apiUrl({ action: "lookup", coil }));
-      const data = await res.json();
+      const data = await lookupCoilSmart(coil);
       if (data.error) throw new Error(data.error);
 
       let item;

@@ -10,6 +10,7 @@
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <script src="queue.js"></script>
+<script src="offline-data.js"></script>
 <script>requireLogin();</script>
 <style>
   :root {
@@ -252,8 +253,7 @@
     currentCoil = coil;
     setStatus("scanStatus", "Looking up " + coil + "...", "info");
     try {
-      const res = await authFetch(apiUrl({ action: "lookup", coil }));
-      const data = await res.json();
+      const data = await lookupCoilSmart(coil);
       if (data.error) throw new Error(data.error);
       if (data.found) {
         await showFound(data.coil);
@@ -271,8 +271,7 @@
 
   async function loadOptions() {
     if (optionsCache) return optionsCache;
-    const res = await authFetch(apiUrl({ action: "options" }));
-    const data = await res.json();
+    const data = await cachedGet("options");
     if (data.error) throw new Error(data.error);
     optionsCache = data.options;
     return optionsCache;
