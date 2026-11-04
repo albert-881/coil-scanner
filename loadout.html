@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="config.js"></script>
 <script src="auth.js"></script>
+<script src="queue.js"></script>
 <script>requireLogin();</script>
 <style>
   :root {
@@ -501,28 +502,21 @@
     $("closeBtn").disabled = true;
     setStatus("loadStatus", "Saving...", "info");
     try {
-        const payload = {
+      const payload = {
         ...load.truck,
         coils: load.coils.map((c) => c.coil),
         photo: { name: "trailer-" + load.truck.trailer + ".jpg", type: "image/jpeg", data: photoData },
       };
-      const res = await authFetch(apiUrl({ action: "save_bol" }), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      const row = Array.isArray(data) ? data[0] : data;
-      if (row && row.status >= 400) {
-        throw new Error((row.errors && row.errors[0] && row.errors[0].message) || "TeamDesk rejected the record");
-      }
+      const result = await saveOrQueue("save_bol", payload, "Trailer " + load.truck.trailer);
       await stopScanner();
-      $("doneText").textContent = "Trailer " + load.truck.trailer + ": " + load.coils.length + " coils, " + fmt(totalWeight()) + " " + WEIGHT_UNIT + ".";
+      const summary = load.coils.length + " coils, " + fmt(totalWeight()) + " " + WEIGHT_UNIT;
+      $("doneText").textContent = result.queued
+        ? "No signal. Trailer " + load.truck.trailer + " (" + summary + ") is saved on this phone and will upload automatically."
+        : "Trailer " + load.truck.trailer + ": " + summary + ".";
       clearPersist();
       show("doneScreen");
     } catch (err) {
-      setStatus("loadStatus", "Not saved: " + err.message + ". Try again.", "error");
+      setStatus("loadStatus", "Not saved: " + err.message, "error");
     } finally {
       $("closeBtn").disabled = false;
     }

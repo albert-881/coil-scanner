@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="config.js"></script>
 <script src="auth.js"></script>
+<script src="queue.js"></script>
 <script>requireLogin();</script>
 <style>
   :root {
@@ -359,22 +360,13 @@
     button.disabled = true;
     setStatus(statusId, "Saving...", "info");
     try {
-      const res = await authFetch(apiUrl({ action: "save" }), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      const row = Array.isArray(data) ? data[0] : data;
-      if (row && row.status >= 400) {
-        const msg = (row.errors && row.errors[0] && row.errors[0].message) || "TeamDesk rejected the record";
-        throw new Error(msg);
-      }
-      $("doneText").textContent = "Coil " + payload.coil + " recorded.";
+      const result = await saveOrQueue("save", payload, "Discharge " + payload.coil);
+      $("doneText").textContent = result.queued
+        ? "No signal. Coil " + payload.coil + " is saved on this phone and will upload automatically."
+        : "Coil " + payload.coil + " recorded.";
       show("doneScreen");
     } catch (err) {
-      setStatus(statusId, "Not saved: " + err.message + ". Try again.", "error");
+      setStatus(statusId, "Not saved: " + err.message, "error");
     } finally {
       button.disabled = false;
     }
