@@ -64,7 +64,7 @@
     min-width: 56px; font-size: 22px; background: var(--panel); color: var(--ink);
     border: 2px solid var(--line);
   }
-  .letter[aria-pressed="true"] { background: var(--go); color: var(--go-ink); border-color: var(--go); }
+  .letter:active { background: var(--go); color: var(--go-ink); border-color: var(--go); }
   .hint { font-size: 14px; color: var(--muted); font-weight: 400; margin-top: 4px; }
   input[type="text"] {
     width: 100%; font: inherit; color: var(--ink); background: var(--panel);
@@ -151,11 +151,11 @@
     </label>
     <div class="field">Tractor number
       <div class="tractor-row">
-        <button type="button" class="letter" data-letter="A" aria-pressed="false">A</button>
-        <button type="button" class="letter" data-letter="B" aria-pressed="false">B</button>
-        <input type="text" id="tractor" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Tractor number digits">
+        <button type="button" class="letter" data-letter="A">A</button>
+        <button type="button" class="letter" data-letter="B">B</button>
+        <input type="text" id="tractor" inputmode="numeric" autocomplete="off" autocapitalize="characters" aria-label="Tractor number">
       </div>
-      <div class="hint">Pick A, B, or both, then type the numbers.</div>
+      <div class="hint">Tap A or B (any mix, like AB or BBA), then type the numbers.</div>
     </div>
     <label class="field">Trailer number
       <input type="text" id="trailer" inputmode="numeric" autocomplete="off">
@@ -228,7 +228,7 @@
   const SAVE_KEY = "loadout-in-progress";
   const PHOTO_MAX_SIZE = 1600;       // longest side in pixels
   const MAX_PHOTOS = 8;              // must match MAX_PHOTOS in the Lambda
-  const TRACTOR_PATTERN = /^(A|B|AB)\d+$/; // must match the Lambda
+  const TRACTOR_PATTERN = /^[AB]+\d+$/; // letters A/B first, then numbers. Must match the Lambda
   // =====================
 
   const $ = (id) => document.getElementById(id);
@@ -277,50 +277,50 @@
     return maxSlots;
   }
 
-  // ----- Tractor letters (A, B, or both; at least one required) -----
-  const pickedLetters = new Set();
-
-  function tractorLetters() {
-    return ["A", "B"].filter((l) => pickedLetters.has(l)).join(""); // always A before B
+  // ----- Tractor number: A/B letters first (any mix), then numbers -----
+  // Keeps the box tidy: letters always stay in front, everything after them is digits only.
+  function tidyTractor(value) {
+    const upper = String(value || "").toUpperCase();
+    const letters = (upper.match(/^[AB]*/) || [""])[0];
+    const digits = upper.slice(letters.length).replace(/\D/g, "");
+    return letters + digits;
   }
 
-  function refreshLetters() {
-    document.querySelectorAll(".letter").forEach((b) =>
-      b.setAttribute("aria-pressed", pickedLetters.has(b.dataset.letter) ? "true" : "false"));
-  }
-
-  function clearLetters() {
-    pickedLetters.clear();
-    refreshLetters();
-  }
-
-  document.querySelectorAll(".letter").forEach((btn) =>
+  document.querySelectorAll(".letter").forEach((btn) => {
+    // keep the keypad open when tapping A or B
+    btn.addEventListener("pointerdown", (e) => e.preventDefault());
     btn.addEventListener("click", () => {
-      const l = btn.dataset.letter;
-      pickedLetters.has(l) ? pickedLetters.delete(l) : pickedLetters.add(l);
-      refreshLetters();
-    }));
+      const box = $("tractor");
+      const current = tidyTractor(box.value);
+      const letters = (current.match(/^[AB]*/) || [""])[0];
+      box.value = letters + btn.dataset.letter + current.slice(letters.length); // add after the last letter
+      box.focus();
+      box.setSelectionRange(box.value.length, box.value.length);
+    });
+  });
 
-  $("tractor").addEventListener("input", (e) => { e.target.value = e.target.value.replace(/\D/g, ""); });
+  $("tractor").addEventListener("input", (e) => {
+    const tidy = tidyTractor(e.target.value);
+    if (tidy !== e.target.value) e.target.value = tidy;
+  });
 
   // ----- Screen 1 -----
   $("startBtn").addEventListener("click", async () => {
-    const digits = $("tractor").value.trim();
     const truck = {
       truck_line: $("truckLine").value.trim(),
-      tractor: tractorLetters() + digits,
+      tractor: tidyTractor($("tractor").value.trim()),
       trailer: $("trailer").value.trim(),
     };
-    if (!truck.truck_line || !digits || !truck.trailer) {
+    if (!truck.truck_line || !truck.tractor || !truck.trailer) {
       setStatus("truckStatus", "Fill in truck line, tractor number, and trailer number.", "error");
       return;
     }
-    if (!tractorLetters()) {
-      setStatus("truckStatus", "Pick A, B, or both for the tractor number.", "error");
+    if (!/^[AB]/.test(truck.tractor)) {
+      setStatus("truckStatus", "Tap A or B first for the tractor number.", "error");
       return;
     }
     if (!TRACTOR_PATTERN.test(truck.tractor)) {
-      setStatus("truckStatus", "Type the tractor number after the letter (like A1234).", "error");
+      setStatus("truckStatus", "Type the numbers after the letters (like AB1234).", "error");
       return;
     }
     if (!/^\d+$/.test(truck.trailer)) {
@@ -610,7 +610,6 @@
   $("newLoadBtn").addEventListener("click", () => {
     resetPhotos();
     ["truckLine", "tractor", "trailer"].forEach((id) => ($(id).value = ""));
-    clearLetters();
     load = { truck: null, coils: [] };
     setStatus("truckStatus", "", "");
     show("truckScreen");
