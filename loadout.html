@@ -140,9 +140,7 @@
     <label class="field">Trailer number
       <input type="text" id="trailer" inputmode="numeric" autocomplete="off">
     </label>
-    <label class="field">Release / PO (optional)
-      <input type="text" id="release" autocomplete="off" autocapitalize="characters">
-    </label>
+    
     <div class="status" id="truckStatus"></div>
     <button class="primary" id="startBtn">Start loading, then scan coils</button>
   </section>
@@ -268,7 +266,7 @@
       truck_line: $("truckLine").value.trim(),
       tractor: $("tractor").value.trim(),
       trailer: $("trailer").value.trim(),
-      release: $("release").value.trim(),
+      
     };
     if (!truck.truck_line || !truck.tractor || !truck.trailer) {
       setStatus("truckStatus", "Fill in truck line, tractor number, and trailer number.", "error");
@@ -532,7 +530,7 @@
 
   $("newLoadBtn").addEventListener("click", () => {
     resetPhoto();
-    ["truckLine", "tractor", "trailer", "release"].forEach((id) => ($(id).value = ""));
+    ["truckLine", "tractor", "trailer"].forEach((id) => ($(id).value = ""));
     load = { truck: null, coils: [] };
     setStatus("truckStatus", "", "");
     show("truckScreen");
