@@ -146,7 +146,7 @@
       </div>
       <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
 
-      <h2>Notes (required)</h2>
+      <h2>Notes (optional)</h2>
       <textarea id="notes" placeholder="Describe the damage"></textarea>
     </div>
 
@@ -378,10 +378,7 @@
         setStatus("foundStatus", "Take a photo of the damage before saving.", "error");
         return;
       }
-      if (!$("notes").value.trim()) {
-        setStatus("foundStatus", "Add a note about the damage before saving.", "error");
-        return;
-      }
+    
     }
     const payload = { coil: currentCoil, conditions, notes: $("notes").value.trim() };
     if (photoData) payload.photo = { name: currentCoil + ".jpg", type: "image/jpeg", data: photoData };
