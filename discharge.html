@@ -53,6 +53,7 @@
   header { padding: 16px 0 8px; display: flex; justify-content: space-between; align-items: baseline; }
   header h1 { font-size: 22px; margin: 0; }
   .home-link { color: var(--muted); text-decoration: none; font-weight: 600; }
+  .test-badge { font-size: 14px; font-weight: 700; color: var(--hold); }
   .screen { display: none; }
   .screen.active { display: block; }
   #reader { width: 100%; border-radius: 10px; overflow: hidden; background: #000; min-height: 220px; }
@@ -94,9 +95,16 @@
   }
   label.check input { width: 26px; height: 26px; accent-color: var(--hold); flex-shrink: 0; }
   label.check:has(input:checked) { border-color: var(--hold); }
-  .photo-row { display: flex; gap: 12px; align-items: center; }
-  .photo-row img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; display: none; }
-  .photo-btn { background: var(--panel); color: var(--ink); border: 2px solid var(--line); flex: 1; }
+  .photo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+  .photo-grid:empty { display: none; }
+  .thumb { position: relative; aspect-ratio: 1; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; display: block; }
+  .thumb button {
+    position: absolute; top: 4px; right: 4px; min-height: 0; width: 28px; height: 28px; padding: 0;
+    border-radius: 50%; background: rgba(0,0,0,0.65); color: #fff; font-size: 16px; line-height: 28px;
+  }
+  .photo-btn { background: var(--panel); color: var(--ink); border: 2px solid var(--line); width: 100%; }
+  .photo-count { font-size: 14px; color: var(--muted); margin-top: 6px; }
   .actions { display: grid; gap: 10px; margin-top: 24px; }
   .hold-banner {
     background: var(--hold); color: #fff; border-radius: 10px; padding: 28px 16px;
@@ -139,11 +147,10 @@
     <div class="checks" id="checks"></div>
 
     <div id="damageDetails" hidden>
-      <h2>Photo (required)</h2>
-      <div class="photo-row">
-        <button class="photo-btn" id="photoBtn">Take photo</button>
-        <img id="photoPreview" alt="Photo preview">
-      </div>
+      <h2>Photos (1 required)</h2>
+      <div class="photo-grid" id="photoGrid"></div>
+      <button class="photo-btn" id="photoBtn">Take photo</button>
+      <div class="photo-count" id="photoCount"></div>
       <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
 
       <h2>Notes (optional)</h2>
@@ -185,11 +192,12 @@
 <script>
   // ===== Settings =====
   const PHOTO_MAX_SIZE = 1600; // longest side in pixels
+  const MAX_PHOTOS = 8;        // must match MAX_PHOTOS in the Lambda
   // =====================
 
   let scanner = null;
   let currentCoil = "";
-  let photoData = null;
+  let photos = []; // base64 JPEGs, first one is the required photo
 
   const $ = (id) => document.getElementById(id);
 
@@ -205,12 +213,6 @@
     const el = $(id);
     el.textContent = text || "";
     el.className = "status" + (text ? " show " + type : "");
-  }
-
-  function apiUrl(params) {
-    const q = new URLSearchParams(params);
-    if (TEST_MODE) q.set("test", "1");
-    return API_URL + "?" + q.toString();
   }
 
   // ----- Scanning -----
@@ -315,7 +317,8 @@
     resetForm();
     show("foundScreen");
   }
-  // ----- Show photo/notes only when damage is checked -----
+
+  // ----- Show photos/notes only when damage is checked -----
   function hasDamage() {
     return document.querySelectorAll("#checks input:checked").length > 0;
   }
@@ -325,16 +328,40 @@
   }
 
   $("checks").addEventListener("change", updateDamageDetails);
-  // ----- Photo -----
+
+  // ----- Photos -----
+  function renderPhotos() {
+    const grid = $("photoGrid");
+    grid.innerHTML = "";
+    photos.forEach((data, i) => {
+      const thumb = document.createElement("div");
+      thumb.className = "thumb";
+      thumb.innerHTML = '<img alt=""><button aria-label="Remove photo">×</button>';
+      thumb.querySelector("img").src = "data:image/jpeg;base64," + data;
+      thumb.querySelector("img").alt = "Photo " + (i + 1);
+      thumb.querySelector("button").addEventListener("click", () => {
+        photos.splice(i, 1);
+        renderPhotos();
+      });
+      grid.appendChild(thumb);
+    });
+
+    const full = photos.length >= MAX_PHOTOS;
+    $("photoBtn").hidden = full;
+    $("photoBtn").textContent = photos.length ? "Add another photo" : "Take photo";
+    $("photoCount").textContent = photos.length
+      ? photos.length + " of " + MAX_PHOTOS + " photos" + (full ? " (limit reached)" : "")
+      : "";
+  }
+
   $("photoBtn").addEventListener("click", () => $("photoInput").click());
 
   $("photoInput").addEventListener("change", async (e) => {
     const file = e.target.files[0];
-    if (!file) return;
-    photoData = await shrinkPhoto(file);
-    $("photoPreview").src = "data:image/jpeg;base64," + photoData;
-    $("photoPreview").style.display = "block";
-    $("photoBtn").textContent = "Retake photo";
+    e.target.value = ""; // so the same photo can be picked again
+    if (!file || photos.length >= MAX_PHOTOS) return;
+    photos.push(await shrinkPhoto(file));
+    renderPhotos();
   });
 
   function shrinkPhoto(file) {
@@ -373,15 +400,18 @@
 
   $("saveBtn").addEventListener("click", () => {
     const conditions = [...document.querySelectorAll("#checks input:checked")].map((i) => i.value);
-    if (conditions.length > 0) {
-      if (!photoData) {
-        setStatus("foundStatus", "Take a photo of the damage before saving.", "error");
-        return;
-      }
-    
+    if (conditions.length > 0 && photos.length === 0) {
+      setStatus("foundStatus", "Take a photo of the damage before saving.", "error");
+      return;
     }
     const payload = { coil: currentCoil, conditions, notes: $("notes").value.trim() };
-    if (photoData) payload.photo = { name: currentCoil + ".jpg", type: "image/jpeg", data: photoData };
+    if (conditions.length > 0) {
+      payload.photos = photos.map((data, i) => ({
+        name: currentCoil + "-" + (i + 1) + ".jpg",
+        type: "image/jpeg",
+        data,
+      }));
+    }
     save(payload, "foundStatus", $("saveBtn"));
   });
 
@@ -400,10 +430,9 @@
 
   // ----- Reset / navigation -----
   function resetForm() {
-    photoData = null;
+    photos = [];
     $("photoInput").value = "";
-    $("photoPreview").style.display = "none";
-    $("photoBtn").textContent = "Take photo";
+    renderPhotos();
     $("notes").value = "";
     setStatus("foundStatus", "", "");
     updateDamageDetails();
