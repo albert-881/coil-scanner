@@ -56,8 +56,16 @@
   .screen { display: none; }
   .screen.active { display: block; }
   h1 { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-size: 36px; margin: 4px 0 16px; }
-  label.field { display: block; margin-bottom: 14px; font-weight: 600; font-size: 15px; color: var(--muted); }
-  label.field input { margin-top: 4px; }
+  .field { display: block; margin-bottom: 14px; font-weight: 600; font-size: 15px; color: var(--muted); }
+  .field input { margin-top: 4px; }
+  .tractor-row { display: flex; gap: 8px; margin-top: 4px; }
+  .tractor-row input { margin-top: 0; }
+  .letter {
+    min-width: 56px; font-size: 22px; background: var(--panel); color: var(--ink);
+    border: 2px solid var(--line);
+  }
+  .letter[aria-pressed="true"] { background: var(--go); color: var(--go-ink); border-color: var(--go); }
+  .hint { font-size: 14px; color: var(--muted); font-weight: 400; margin-top: 4px; }
   input[type="text"] {
     width: 100%; font: inherit; color: var(--ink); background: var(--panel);
     border: 2px solid var(--line); border-radius: 8px; padding: 12px;
@@ -112,9 +120,16 @@
   .row button { background: transparent; color: var(--hold); padding: 4px 0; min-height: 0; font-size: 14px; }
   .empty { color: var(--muted); text-align: center; padding: 16px 0; }
   h2 { font-size: 18px; margin: 20px 0 8px; }
-  .photo-row { display: flex; gap: 12px; align-items: center; }
-  .photo-row img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; display: none; }
-  .photo-btn { background: var(--panel); color: var(--ink); border: 2px solid var(--line); flex: 1; }
+  .photo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+  .photo-grid:empty { display: none; }
+  .thumb { position: relative; aspect-ratio: 1; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; display: block; }
+  .thumb button {
+    position: absolute; top: 4px; right: 4px; min-height: 0; width: 28px; height: 28px; padding: 0;
+    border-radius: 50%; background: rgba(0,0,0,0.65); color: #fff; font-size: 16px; line-height: 28px;
+  }
+  .photo-btn { background: var(--panel); color: var(--ink); border: 2px solid var(--line); width: 100%; }
+  .photo-count { font-size: 14px; color: var(--muted); margin-top: 6px; }
   .actions { display: grid; gap: 10px; margin-top: 18px; }
 
   .done { text-align: center; padding: 40px 0; }
@@ -134,13 +149,18 @@
     <label class="field">Truck line
       <input type="text" id="truckLine" autocomplete="off" autocapitalize="characters">
     </label>
-    <label class="field">Tractor number
-      <input type="text" id="tractor" inputmode="numeric" autocomplete="off">
-    </label>
+    <div class="field">Tractor number
+      <div class="tractor-row">
+        <button type="button" class="letter" data-letter="A" aria-pressed="false">A</button>
+        <button type="button" class="letter" data-letter="B" aria-pressed="false">B</button>
+        <input type="text" id="tractor" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Tractor number digits">
+      </div>
+      <div class="hint">Pick A, B, or both, then type the numbers.</div>
+    </div>
     <label class="field">Trailer number
       <input type="text" id="trailer" inputmode="numeric" autocomplete="off">
     </label>
-    
+
     <div class="status" id="truckStatus"></div>
     <button class="primary" id="startBtn">Start loading, then scan coils</button>
   </section>
@@ -172,12 +192,13 @@
     <div class="status" id="loadStatus"></div>
 
     <div class="list" id="coilList"></div>
-    <h2>Photo of the load (required)</h2>
-    <div class="photo-row">
-      <button class="photo-btn" id="photoBtn">Take photo</button>
-      <img id="photoPreview" alt="Photo of the load">
-    </div>
+
+    <h2>Photos of the load (1 required)</h2>
+    <div class="photo-grid" id="photoGrid"></div>
+    <button class="photo-btn" id="photoBtn">Take photo</button>
+    <div class="photo-count" id="photoCount"></div>
     <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
+
     <div class="actions">
       <button class="finish" id="closeBtn">Close load and save</button>
       <button class="secondary" id="cancelLoadBtn">Cancel this load</button>
@@ -199,13 +220,15 @@
 
 <script>
   // ===== Settings =====
-
   const MAX_LOAD = 48000;            // trailer weight limit
   const WEIGHT_UNIT = "lbs";         // shown next to weights
   const WEIGHT_FIELD = "Gross";      // which Service Order weight counts toward the load
   const GOOD_STATUSES = ["Landed"];  // any other status asks "Are you sure?"
   const ALLOW_UNKNOWN_COILS = false; // false = coils not in Service Order are blocked
   const SAVE_KEY = "loadout-in-progress";
+  const PHOTO_MAX_SIZE = 1600;       // longest side in pixels
+  const MAX_PHOTOS = 8;              // must match MAX_PHOTOS in the Lambda
+  const TRACTOR_PATTERN = /^(A|B|AB)\d+$/; // must match the Lambda
   // =====================
 
   const $ = (id) => document.getElementById(id);
@@ -226,12 +249,6 @@
     const el = $(id);
     el.textContent = text || "";
     el.className = "status" + (text ? " show " + type : "");
-  }
-
-  function apiUrl(params) {
-    const q = new URLSearchParams(params);
-    if (TEST_MODE) q.set("test", "1");
-    return API_URL + "?" + q.toString();
   }
 
   function fmt(n) { return Number(n || 0).toLocaleString(); }
@@ -260,20 +277,54 @@
     return maxSlots;
   }
 
+  // ----- Tractor letters (A, B, or both; at least one required) -----
+  const pickedLetters = new Set();
+
+  function tractorLetters() {
+    return ["A", "B"].filter((l) => pickedLetters.has(l)).join(""); // always A before B
+  }
+
+  function refreshLetters() {
+    document.querySelectorAll(".letter").forEach((b) =>
+      b.setAttribute("aria-pressed", pickedLetters.has(b.dataset.letter) ? "true" : "false"));
+  }
+
+  function clearLetters() {
+    pickedLetters.clear();
+    refreshLetters();
+  }
+
+  document.querySelectorAll(".letter").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const l = btn.dataset.letter;
+      pickedLetters.has(l) ? pickedLetters.delete(l) : pickedLetters.add(l);
+      refreshLetters();
+    }));
+
+  $("tractor").addEventListener("input", (e) => { e.target.value = e.target.value.replace(/\D/g, ""); });
+
   // ----- Screen 1 -----
   $("startBtn").addEventListener("click", async () => {
+    const digits = $("tractor").value.trim();
     const truck = {
       truck_line: $("truckLine").value.trim(),
-      tractor: $("tractor").value.trim(),
+      tractor: tractorLetters() + digits,
       trailer: $("trailer").value.trim(),
-      
     };
-    if (!truck.truck_line || !truck.tractor || !truck.trailer) {
+    if (!truck.truck_line || !digits || !truck.trailer) {
       setStatus("truckStatus", "Fill in truck line, tractor number, and trailer number.", "error");
       return;
     }
-    if (!/^\d+$/.test(truck.tractor) || !/^\d+$/.test(truck.trailer)) {
-      setStatus("truckStatus", "Tractor and trailer numbers can only have digits.", "error");
+    if (!tractorLetters()) {
+      setStatus("truckStatus", "Pick A, B, or both for the tractor number.", "error");
+      return;
+    }
+    if (!TRACTOR_PATTERN.test(truck.tractor)) {
+      setStatus("truckStatus", "Type the tractor number after the letter (like A1234).", "error");
+      return;
+    }
+    if (!/^\d+$/.test(truck.trailer)) {
+      setStatus("truckStatus", "Trailer number can only have digits.", "error");
       return;
     }
     $("startBtn").disabled = true;
@@ -294,10 +345,11 @@
   function openLoadScreen() {
     const t = load.truck;
     $("showTrailer").textContent = t.trailer;
-    $("showTruck").textContent = t.truck_line + " · Tractor " + t.tractor + (t.release ? " · " + t.release : "");
+    $("showTruck").textContent = t.truck_line + " · Tractor " + t.tractor;
     $("limitLabel").textContent = "LIMIT " + fmt(MAX_LOAD) + " " + WEIGHT_UNIT.toUpperCase();
     setStatus("loadStatus", "", "");
     render();
+    renderPhotos();
     show("loadScreen");
     startScanner();
   }
@@ -439,9 +491,33 @@
       setTimeout(() => { busy = false; resumeScanner(); }, 1200);
     }
   }
-  // ----- Photo of the load -----
-  const PHOTO_MAX_SIZE = 1600;
-  let photoData = null;
+
+  // ----- Photos of the load -----
+  let photos = []; // base64 JPEGs, first one is the required photo
+
+  function renderPhotos() {
+    const grid = $("photoGrid");
+    grid.innerHTML = "";
+    photos.forEach((data, i) => {
+      const thumb = document.createElement("div");
+      thumb.className = "thumb";
+      thumb.innerHTML = '<img alt=""><button aria-label="Remove photo">×</button>';
+      thumb.querySelector("img").src = "data:image/jpeg;base64," + data;
+      thumb.querySelector("img").alt = "Photo " + (i + 1);
+      thumb.querySelector("button").addEventListener("click", () => {
+        photos.splice(i, 1);
+        renderPhotos();
+      });
+      grid.appendChild(thumb);
+    });
+
+    const full = photos.length >= MAX_PHOTOS;
+    $("photoBtn").hidden = full;
+    $("photoBtn").textContent = photos.length ? "Add another photo" : "Take photo";
+    $("photoCount").textContent = photos.length
+      ? photos.length + " of " + MAX_PHOTOS + " photos" + (full ? " (limit reached)" : "")
+      : "";
+  }
 
   $("photoBtn").addEventListener("click", async () => {
     await stopScanner(); // free the camera for the photo
@@ -450,11 +526,10 @@
 
   $("photoInput").addEventListener("change", async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      photoData = await shrinkPhoto(file);
-      $("photoPreview").src = "data:image/jpeg;base64," + photoData;
-      $("photoPreview").style.display = "block";
-      $("photoBtn").textContent = "Retake photo";
+    e.target.value = ""; // so the same photo can be picked again
+    if (file && photos.length < MAX_PHOTOS) {
+      photos.push(await shrinkPhoto(file));
+      renderPhotos();
     }
     startScanner();
   });
@@ -478,19 +553,19 @@
     });
   }
 
-  function resetPhoto() {
-    photoData = null;
+  function resetPhotos() {
+    photos = [];
     $("photoInput").value = "";
-    $("photoPreview").style.display = "none";
-    $("photoBtn").textContent = "Take photo";
+    renderPhotos();
   }
+
   // ----- Close load -----
   $("closeBtn").addEventListener("click", async () => {
     if (!load.coils.length) {
       setStatus("loadStatus", "Scan at least one coil before closing the load.", "error");
       return;
     }
-    if (!photoData) {
+    if (!photos.length) {
       setStatus("loadStatus", "Take a photo of the load before closing it.", "error");
       return;
     }
@@ -502,7 +577,11 @@
       const payload = {
         ...load.truck,
         coils: load.coils.map((c) => c.coil),
-        photo: { name: "trailer-" + load.truck.trailer + ".jpg", type: "image/jpeg", data: photoData },
+        photos: photos.map((data, i) => ({
+          name: "trailer-" + load.truck.trailer + "-" + (i + 1) + ".jpg",
+          type: "image/jpeg",
+          data,
+        })),
       };
       const result = await saveOrQueue("save_bol", payload, "Trailer " + load.truck.trailer);
       await stopScanner();
@@ -521,7 +600,7 @@
 
   $("cancelLoadBtn").addEventListener("click", async () => {
     if (!confirm("Cancel this load? The scanned coils will be cleared.")) return;
-    resetPhoto();
+    resetPhotos();
     await stopScanner();
     clearPersist();
     load = { truck: null, coils: [] };
@@ -529,8 +608,9 @@
   });
 
   $("newLoadBtn").addEventListener("click", () => {
-    resetPhoto();
+    resetPhotos();
     ["truckLine", "tractor", "trailer"].forEach((id) => ($(id).value = ""));
+    clearLetters();
     load = { truck: null, coils: [] };
     setStatus("truckStatus", "", "");
     show("truckScreen");
