@@ -6,6 +6,7 @@
 <title>Log in</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+<link rel="icon" href="/favicon.png">
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <style>
@@ -47,10 +48,18 @@
   .status.error { background: var(--hold); color: #fff; }
   .status.info { background: var(--panel); border: 2px solid var(--line); }
   .hint { font-size: 14px; color: var(--muted); margin: -6px 0 14px; }
+  .app-logo {
+    display: block;
+    width: 200px;
+    max-width: 70%;
+    height: auto;
+    margin: 0 auto 24px;
+  }
 </style>
 </head>
 <body>
 <main>
+  <img src="/logo.png" alt="Schaefer Stevedoring" class="app-logo">
   <section id="loginStep">
     <h1>Log in</h1>
     <p class="sub">You only need to do this once on this phone.</p>
