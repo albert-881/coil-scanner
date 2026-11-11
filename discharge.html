@@ -223,17 +223,7 @@
       if (!scanner) scanner = new Html5Qrcode("reader", { verbose: false });
       await scanner.start(
         { facingMode: "environment" },
-        {
-          fps: 15,
-          qrbox: (w, h) => ({ width: Math.floor(w * 0.9), height: Math.floor(h * 0.6) }),
-          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-          videoConstraints: {
-            facingMode: "environment",
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            advanced: [{ focusMode: "continuous" }],
-          },
-        },
+        { fps: 10, qrbox: { width: 280, height: 120 }, experimentalFeatures: { useBarCodeDetectorIfSupported: true } },
         onScan,
         () => {}
       );
